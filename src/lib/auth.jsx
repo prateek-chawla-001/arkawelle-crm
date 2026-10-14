@@ -1,12 +1,9 @@
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { supabase } from './supabase.js'
 
-// DEMO-GRADE LOGIN: users live in the frontend and the session sits in localStorage.
-// This is for the prototype only. In Phase 1 swap it for Supabase Auth + RLS policies.
-export const DEMO_USERS = [
-  { email: 'admin@arkawelle.in', password: 'admin123', name: 'Rohit Verma', role: 'Admin' },
-  { email: 'sales@arkawelle.in', password: 'sales123', name: 'Neha Kapoor', role: 'Sales Manager' },
-  { email: 'tech@arkawelle.in', password: 'tech123', name: 'Amit Yadav', role: 'Technician', tech: 'Tech A - Gurugram' },
-]
+// Supabase Auth handles accounts and sessions; CRM details (name, role, service area)
+// live in public.profiles, created by a DB trigger on signup (see supabase/supabase_auth_setup.sql).
+export const SIGNUP_ROLES = ['Sales Manager', 'Technician']
 
 const PERMS = {
   Admin: { analytics: true, addLead: true, editLead: true, assignTech: true, deleteLead: true, exportCsv: true, dragDrop: true, seeAll: true },
@@ -14,35 +11,86 @@ const PERMS = {
   Technician: { analytics: false, addLead: false, editLead: true, assignTech: false, deleteLead: false, exportCsv: false, dragDrop: true, seeAll: false },
 }
 
-const KEY = 'arkawelle_session'
 const AuthContext = createContext(null)
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const email = localStorage.getItem(KEY)
-      return DEMO_USERS.find((u) => u.email === email) || null
-    } catch {
-      return null
-    }
-  })
+const toUser = (p) => ({ id: p.id, email: p.email, name: p.full_name, phone: p.phone, role: p.role, tech: p.tech })
 
-  const login = useCallback((email, password) => {
-    const found = DEMO_USERS.find((u) => u.email === email.trim().toLowerCase() && u.password === password)
-    if (!found) return { ok: false, error: 'Invalid email or password.' }
-    try { localStorage.setItem(KEY, found.email) } catch { /* ignore */ }
-    setUser(found)
+export function AuthProvider({ children }) {
+  const [session, setSession] = useState(undefined) // undefined = still checking
+  const [profile, setProfile] = useState({ id: null, user: null }) // profile loaded for user id
+  const [authError, setAuthError] = useState('')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    // Keep this callback synchronous: awaiting Supabase calls inside it can deadlock the client.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  const userId = session?.user?.id ?? null
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) console.error('Load profile failed:', error)
+        if (!data) {
+          // Auth account without a CRM profile (e.g. created before the signup trigger existed).
+          setAuthError('This account has no CRM profile. Ask an Admin for help.')
+          supabase.auth.signOut()
+        }
+        setProfile({ id: userId, user: data ? toUser(data) : null })
+      })
+    return () => { cancelled = true }
+  }, [userId])
+
+  const loading = session === undefined || (!!userId && profile.id !== userId)
+  const user = userId && profile.id === userId ? profile.user : null
+
+  const login = useCallback(async (email, password) => {
+    setAuthError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+    if (error) {
+      const msg = /confirm/i.test(error.message) ? 'Please confirm your email first. Check your inbox.' : 'Invalid email or password.'
+      return { ok: false, error: msg }
+    }
     return { ok: true }
   }, [])
 
-  const logout = useCallback(() => {
-    try { localStorage.removeItem(KEY) } catch { /* ignore */ }
-    setUser(null)
+  // Details go in options.data; the DB trigger copies them into public.profiles.
+  const signup = useCallback(async ({ name, email, phone, role, tech, password }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: {
+        data: { full_name: name.trim(), phone: phone.trim(), role, tech: role === 'Technician' ? tech : '' },
+        emailRedirectTo: window.location.origin,
+      },
+    })
+    if (error) {
+      console.error('Sign up failed:', error)
+      return { ok: false, error: error.message || 'Could not create account.' }
+    }
+    // With "Confirm email" on, Supabase returns a user with no identities for an already-registered email.
+    if (data.user && data.user.identities?.length === 0) {
+      return { ok: false, error: 'An account with this email already exists.' }
+    }
+    // No session means Supabase is waiting for the user to confirm their email.
+    return { ok: true, needsConfirmation: !data.session }
+  }, [])
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
   }, [])
 
   const can = useCallback((perm) => !!(user && PERMS[user.role]?.[perm]), [user])
 
-  return <AuthContext.Provider value={{ user, login, logout, can }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, authError, login, signup, logout, can }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => useContext(AuthContext)

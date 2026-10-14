@@ -1,7 +1,8 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { Calculator, CalendarDays, Kanban, LayoutDashboard, LogOut, Sun, Table2, UserPlus } from 'lucide-react'
+import { Calculator, CalendarDays, Kanban, LayoutDashboard, Loader2, LogOut, Sun, Table2, UserPlus } from 'lucide-react'
 import { useAuth } from './lib/auth.jsx'
 import Login from './pages/Login.jsx'
+import Signup from './pages/Signup.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import PipelineBoard from './pages/PipelineBoard.jsx'
 import LeadsTable from './pages/LeadsTable.jsx'
@@ -30,8 +31,22 @@ function Guard({ perm, children }) {
 }
 
 export default function App() {
-  const { user, logout, can } = useAuth()
-  if (!user) return <Login />
+  const { user, loading, logout, can } = useAuth()
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
+      </div>
+    )
+  }
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
