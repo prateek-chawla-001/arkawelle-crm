@@ -14,7 +14,7 @@ export default function Schedule() {
           <h1 className="text-2xl font-semibold text-gray-900">Site survey schedule</h1>
           <LiveBadge live={live} />
         </div>
-        <p className="mt-1 text-sm text-gray-500">Leads waiting for a technician visit.</p>
+        <p className="mt-1 text-sm text-gray-500">Leads waiting for a vendor site visit.</p>
       </div>
 
       {error && <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle className="h-5 w-5" /> {error}</div>}
@@ -27,7 +27,7 @@ export default function Schedule() {
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-gray-200 bg-gray-50 text-gray-500">
-              <tr>{['Customer', 'City', 'Phone', 'Capacity', 'Technician', 'Status', 'Added'].map((h) => <th key={h} className="px-5 py-3 font-medium">{h}</th>)}</tr>
+              <tr>{['Customer', 'City', 'Phone', 'Capacity', 'Vendor', 'Status', 'Added'].map((h) => <th key={h} className="px-5 py-3 font-medium">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((r) => (

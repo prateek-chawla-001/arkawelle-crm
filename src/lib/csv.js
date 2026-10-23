@@ -2,7 +2,7 @@ const COLS = [
   ['Customer', (r) => r.customer_name], ['Phone', (r) => r.phone], ['Email', (r) => r.email],
   ['City', (r) => r.city], ['Address', (r) => r.address], ['Roof type', (r) => r.roof_type],
   ['Estimated kW', (r) => r.estimated_kw], ['Status', (r) => r.status],
-  ['Assigned technician', (r) => r.assigned_tech], ['Created', (r) => r.created_at],
+  ['Assigned vendor', (r) => r.assigned_tech], ['Created', (r) => r.created_at],
 ]
 const esc = (v) => {
   const s = v == null ? '' : String(v)

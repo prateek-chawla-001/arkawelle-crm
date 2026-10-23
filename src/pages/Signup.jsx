@@ -1,109 +1,102 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
-import { SIGNUP_ROLES, useAuth } from '../lib/auth.jsx'
-import { TECHS } from '../lib/constants.js'
-import AuthLayout, { inputCls } from '../components/AuthLayout.jsx'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Loader2, MailCheck, Sun } from 'lucide-react'
+import { useAuth } from '../lib/auth.jsx'
 
-const EMPTY = { name: '', email: '', phone: '', role: 'Sales Manager', tech: '', password: '', confirm: '' }
+const inputCls =
+  'w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-3 focus:ring-brand-500/15'
 
-function Field({ label, required, children }) {
+function Field({ label, optional, children }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
-      </span>
+      <span className="mb-1.5 block text-sm font-medium text-gray-700">{label} {optional && <span className="font-normal text-gray-400">(optional)</span>}</span>
       {children}
     </label>
   )
 }
 
-const validate = (f) => {
-  if (f.name.trim().length < 2) return 'Enter your full name.'
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return 'Enter a valid email address.'
-  if (f.phone.trim() && !/^\+?[\d\s-]{10,15}$/.test(f.phone.trim())) return 'Enter a valid phone number.'
-  if (!SIGNUP_ROLES.includes(f.role)) return 'Choose a role.'
-  if (f.role === 'Technician' && !TECHS.includes(f.tech)) return 'Choose your service area.'
-  if (f.password.length < 8) return 'Password must be at least 8 characters.'
-  if (f.password !== f.confirm) return 'Passwords do not match.'
-  return null
-}
-
 export default function Signup() {
   const { signup } = useAuth()
-  const navigate = useNavigate()
-  const [form, setForm] = useState(EMPTY)
+  const [f, setF] = useState({ companyName: '', contactName: '', email: '', phone: '', city: '', gst: '', password: '', confirm: '' })
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const [saving, setSaving] = useState(false)
+  const [confirmSent, setConfirmSent] = useState(false)
+  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }))
 
   const submit = async (e) => {
     e.preventDefault()
-    const problem = validate(form)
-    if (problem) return setError(problem)
-    setBusy(true)
     setError('')
-    const res = await signup(form)
-    if (!res.ok) {
-      setError(res.error)
-      setBusy(false)
-      return
-    }
-    // If email confirmation is off, Supabase signs the user in and App switches to the CRM automatically.
-    if (res.needsConfirmation) {
-      navigate('/', {
-        replace: true,
-        state: { email: form.email.trim().toLowerCase(), notice: 'Account created. Check your email to confirm it, then sign in.' },
-      })
-    }
+    if (!f.companyName.trim()) return setError('Please enter your company name.')
+    if (!f.contactName.trim()) return setError('Please enter the contact person’s name.')
+    if (!/^\S+@\S+\.\S+$/.test(f.email.trim())) return setError('Please enter a valid email address.')
+    if (f.phone.replace(/\D/g, '').length < 10) return setError('Please enter a valid phone number.')
+    if (!f.city.trim()) return setError('Please enter your city.')
+    if (f.password.length < 6) return setError('Password must be at least 6 characters.')
+    if (f.password !== f.confirm) return setError('Passwords do not match.')
+
+    setSaving(true)
+    const res = await signup(f)
+    setSaving(false)
+    if (!res.ok) return setError(res.error)
+    // Email confirmation OFF: you are signed in and land on the "waiting for approval" screen.
+    if (res.needsConfirmation) setConfirmSent(true)
   }
 
   return (
-    <AuthLayout>
-      <h2 className="text-2xl font-semibold text-gray-900">Create account</h2>
-      <p className="mt-1 text-sm text-gray-500">Join your team on Arkawelle CRM.</p>
+    <div className="grid min-h-screen lg:grid-cols-2">
+      <div className="hidden flex-col justify-between bg-brand-500 p-12 text-white lg:flex">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15"><Sun className="h-6 w-6" /></div>
+          <span className="text-xl font-semibold">Arkawelle Infra</span>
+        </Link>
+        <div>
+          <h1 className="text-4xl font-semibold leading-tight">Become an Arkawelle<br />solar vendor.</h1>
+          <p className="mt-4 max-w-md text-brand-100">Register your company, get approved, and start receiving and managing solar leads in your city.</p>
+        </div>
+        <p className="text-sm text-brand-100">© Arkawelle Infra Private Limited</p>
+      </div>
 
-      <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
-        <Field label="Full name" required>
-          <input className={inputCls} autoComplete="name" placeholder="e.g. Neha Kapoor" value={form.name} onChange={set('name')} />
-        </Field>
-        <Field label="Work email" required>
-          <input className={inputCls} type="email" autoComplete="email" placeholder="you@arkawelle.in" value={form.email} onChange={set('email')} />
-        </Field>
-        <Field label="Phone">
-          <input className={inputCls} type="tel" autoComplete="tel" placeholder="+91 98100 00000" value={form.phone} onChange={set('phone')} />
-        </Field>
-        <Field label="Role" required>
-          <select className={inputCls} value={form.role} onChange={set('role')}>
-            {SIGNUP_ROLES.map((r) => <option key={r}>{r}</option>)}
-          </select>
-        </Field>
-        {form.role === 'Technician' && (
-          <Field label="Service area" required>
-            <select className={inputCls} value={form.tech} onChange={set('tech')}>
-              <option value="">Select your area</option>
-              {TECHS.map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </Field>
-        )}
-        <Field label="Password" required>
-          <input className={inputCls} type="password" autoComplete="new-password" placeholder="At least 8 characters" value={form.password} onChange={set('password')} />
-        </Field>
-        <Field label="Confirm password" required>
-          <input className={inputCls} type="password" autoComplete="new-password" value={form.confirm} onChange={set('confirm')} />
-        </Field>
+      <div className="flex items-center justify-center overflow-y-auto bg-white p-8">
+        <div className="w-full max-w-md">
+          <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"><ArrowLeft className="h-4 w-4" /> Back to home</Link>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60">
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create account
-        </button>
-      </form>
+          {confirmSent ? (
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-500"><MailCheck className="h-7 w-7" /></div>
+              <h2 className="mt-5 text-2xl font-semibold text-gray-900">Check your inbox</h2>
+              <p className="mt-2 text-sm text-gray-500">We sent a confirmation link to <span className="font-medium text-gray-800">{f.email}</span>. Confirm it, then sign in. An administrator will approve your account after that.</p>
+              <Link to="/signin" className="mt-6 inline-block rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Go to sign in</Link>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-2xl font-semibold text-gray-900">Register your company</h2>
+              <p className="mt-1 text-sm text-gray-500">An administrator reviews every new vendor.</p>
 
-      <p className="mt-6 text-center text-sm text-gray-500">
-        Already have an account?{' '}
-        <Link to="/" className="font-medium text-brand-500 hover:text-brand-600">Sign in</Link>
-      </p>
-    </AuthLayout>
+              <form onSubmit={submit} className="mt-6 space-y-4">
+                <Field label="Company name"><input className={inputCls} value={f.companyName} onChange={set('companyName')} placeholder="e.g. SunBridge Energy" /></Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Contact person"><input className={inputCls} value={f.contactName} onChange={set('contactName')} placeholder="Full name" /></Field>
+                  <Field label="Phone"><input className={inputCls} type="tel" value={f.phone} onChange={set('phone')} placeholder="+91 98XXXXXXXX" /></Field>
+                </div>
+                <Field label="Work email"><input className={inputCls} type="email" value={f.email} onChange={set('email')} placeholder="name@company.com" /></Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="City"><input className={inputCls} value={f.city} onChange={set('city')} placeholder="e.g. Gurugram" /></Field>
+                  <Field label="GST number" optional><input className={inputCls} value={f.gst} onChange={set('gst')} placeholder="15 characters" /></Field>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Password"><input className={inputCls} type="password" value={f.password} onChange={set('password')} placeholder="6+ characters" /></Field>
+                  <Field label="Confirm"><input className={inputCls} type="password" value={f.confirm} onChange={set('confirm')} placeholder="Repeat" /></Field>
+                </div>
+                {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+                <button disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />} {saving ? 'Creating account…' : 'Register as a vendor'}
+                </button>
+              </form>
+              <p className="mt-6 text-center text-sm text-gray-500">Already registered? <Link to="/signin" className="font-medium text-brand-500 hover:underline">Sign in</Link></p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

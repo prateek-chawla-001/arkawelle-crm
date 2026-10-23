@@ -37,7 +37,7 @@ function LeadCard({ lead, draggable, dragging, onOpen, onDragStart, onDragEnd })
 }
 
 export default function PipelineBoard() {
-  const { can } = useAuth()
+  const { user, can } = useAuth()
   const { leads, loading, error, live, refetch, updateLead, deleteLead } = useLeads()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(null)
@@ -120,7 +120,7 @@ export default function PipelineBoard() {
 
       {!can('seeAll') && (
         <div className="mb-6 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <Lock className="h-4 w-4" /> Technician view: you only see leads assigned to you.
+          <Lock className="h-4 w-4" /> Showing only the leads assigned to {user.company}.
         </div>
       )}
 

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calculator, Loader2, Mail, MapPin, Phone, Trash2, X } from 'lucide-react'
-import { STATUSES, TECHS } from '../lib/constants.js'
+import { STATUSES } from '../lib/constants.js'
+import { useVendors } from '../lib/useVendors.js'
 import { useAuth } from '../lib/auth.jsx'
 
 const selectCls =
@@ -9,6 +10,8 @@ const selectCls =
 
 export default function LeadModal({ lead, saving, onClose, onSave, onDelete }) {
   const { can } = useAuth()
+  const { vendors } = useVendors()
+  const vendorNames = [...new Set([...vendors.filter((v) => v.status === 'Approved').map((v) => v.company_name), ...(lead.assigned_tech ? [lead.assigned_tech] : [])])]
   const [status, setStatus] = useState(lead.status)
   const [tech, setTech] = useState(lead.assigned_tech || '')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -60,11 +63,11 @@ export default function LeadModal({ lead, saving, onClose, onSave, onDelete }) {
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Assigned technician {!can('assignTech') && <span className="font-normal text-gray-400">(managers only)</span>}
+              Assigned vendor {!can('assignTech') && <span className="font-normal text-gray-400">(staff only)</span>}
             </span>
             <select className={selectCls} value={tech} disabled={!can('assignTech')} onChange={(e) => setTech(e.target.value)}>
               <option value="">Unassigned</option>
-              {TECHS.map((t) => <option key={t}>{t}</option>)}
+              {vendorNames.map((t) => <option key={t}>{t}</option>)}
             </select>
           </label>
         </div>

@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react'
 import { Loader2, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
-import { ROOF_TYPES, TECHS } from '../lib/constants.js'
+import { ROOF_TYPES } from '../lib/constants.js'
+import { useAuth } from '../lib/auth.jsx'
+import { useVendors } from '../lib/useVendors.js'
 import Toast from '../components/Toast.jsx'
 
 const EMPTY = {
@@ -31,6 +33,9 @@ function Field({ label, required, children }) {
 
 export default function LeadCaptureForm() {
   const [form, setForm] = useState(EMPTY)
+  const { user } = useAuth()
+  const { vendors } = useVendors()
+  const isVendor = user?.role === 'Vendor'
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -54,7 +59,7 @@ export default function LeadCaptureForm() {
         address: form.address.trim() || null,
         roof_type: form.roof_type,
         estimated_kw: form.estimated_kw === '' ? null : Number(form.estimated_kw),
-        assigned_tech: form.assigned_tech || null,
+        assigned_tech: isVendor ? user.company : form.assigned_tech || null,
         status: 'New Lead',
       }
       const { error } = await supabase.from('leads').insert([payload])
@@ -119,14 +124,20 @@ export default function LeadCaptureForm() {
           <Field label="Estimated capacity (kW)">
             <input className={inputCls} type="number" min="0" step="0.1" value={form.estimated_kw} onChange={set('estimated_kw')} placeholder="e.g. 5" />
           </Field>
-          <Field label="Assign technician">
-            <select className={inputCls} value={form.assigned_tech} onChange={set('assigned_tech')}>
-              <option value="">Unassigned</option>
-              {TECHS.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
+          {isVendor ? (
+            <Field label="Assigned vendor">
+              <input className={inputCls} value={user.company} disabled />
+            </Field>
+          ) : (
+            <Field label="Assign vendor">
+              <select className={inputCls} value={form.assigned_tech} onChange={set('assigned_tech')}>
+                <option value="">Unassigned</option>
+                {vendors.filter((v) => v.status === 'Approved').map((v) => (
+                  <option key={v.id}>{v.company_name}</option>
+                ))}
+              </select>
+            </Field>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 rounded-b-2xl border-t border-gray-200 bg-gray-50 px-6 py-4">

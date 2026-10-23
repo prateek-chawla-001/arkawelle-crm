@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { AlertCircle, ArrowUpDown, Download, Loader2, Plus, Search } from 'lucide-react'
 import { useLeads } from '../lib/useLeads.js'
 import { useAuth } from '../lib/auth.jsx'
-import { ROOF_TYPES, STATUSES, STATUS_STYLES, TECHS, formatDate } from '../lib/constants.js'
+import { ROOF_TYPES, STATUSES, STATUS_STYLES, formatDate } from '../lib/constants.js'
+import { useVendors } from '../lib/useVendors.js'
 import { downloadLeadsCsv } from '../lib/csv.js'
 import Toast from '../components/Toast.jsx'
 import LeadModal from '../components/LeadModal.jsx'
@@ -16,13 +17,14 @@ const COLUMNS = [
   { key: 'estimated_kw', label: 'Capacity' },
   { key: 'roof_type', label: 'Roof' },
   { key: 'status', label: 'Status' },
-  { key: 'assigned_tech', label: 'Technician' },
+  { key: 'assigned_tech', label: 'Vendor' },
   { key: 'created_at', label: 'Added' },
 ]
 
 export default function LeadsTable() {
   const { can } = useAuth()
   const { leads, loading, error, live, updateLead, deleteLead } = useLeads()
+  const { vendors } = useVendors()
   const [f, setF] = useState({ q: '', status: '', city: '', tech: '', roof: '' })
   const [sort, setSort] = useState({ key: 'created_at', dir: 'desc' })
   const [selected, setSelected] = useState(null)
@@ -107,7 +109,7 @@ export default function LeadsTable() {
         <select className={filterCls} value={f.roof} onChange={set('roof')}><option value="">All roof types</option>{ROOF_TYPES.map((r) => <option key={r}>{r}</option>)}</select>
         {can('seeAll') && (
           <select className={filterCls} value={f.tech} onChange={set('tech')}>
-            <option value="">All technicians</option><option value="__none">Unassigned</option>{TECHS.map((t) => <option key={t}>{t}</option>)}
+            <option value="">All vendors</option><option value="__none">Unassigned</option>{vendors.map((v) => <option key={v.id}>{v.company_name}</option>)}
           </select>
         )}
       </div>

@@ -27,7 +27,7 @@ export function useLeads() {
   }, [])
 
   useEffect(() => {
-    fetchLeads()
+    fetchLeads(true)
     // Realtime: any insert/update/delete on `leads` triggers a silent refetch.
     const channel = supabase
       .channel('leads-' + Math.random().toString(36).slice(2))
@@ -37,7 +37,7 @@ export function useLeads() {
   }, [fetchLeads])
 
   const leads = useMemo(
-    () => (seeAll ? all : all.filter((l) => l.assigned_tech && l.assigned_tech === user?.tech)),
+    () => (seeAll ? all : all.filter((l) => l.assigned_tech && l.assigned_tech === user?.company)),
     [all, seeAll, user]
   )
 
